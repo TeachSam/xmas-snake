@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🎄 Snake – Xmas Edition</title>
+  <style>
+    :root {
+      --bg: #0b1520; --panel: #0f1f2e; --accent: #e53935; --accent2: #2ecc71;
+      --text: #eaf2f9; --muted: #9fb3c8; --gold: #f7c948;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text); }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 12px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    header h1 { font-size: 1.35rem; margin: 0; display: flex; align-items: center; gap: .5rem; }
+    .badge { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; padding: 2px 8px; border-radius: 999px; font-weight: 700; font-size: .8rem; }
+    .envBadge { margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-weight: 700; font-size: .75rem; border: 1px solid #274a63; background:#0d1d2a; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 900px) { .grid { grid-template-columns: 1.2fr .8fr; } }
+    .panel { background: linear-gradient(180deg, #0f1f2e 0%, #0b1722 100%); border: 1px solid #12283a; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+    .panel h2 { font-size: 1rem; margin: 0; padding: 10px 12px; border-bottom: 1px solid #12283a; color: var(--muted); }
+    .panel .body { padding: 12px; }
+    #gameWrap { position: relative; aspect-ratio: 1 / 1; width: 100%; background: radial-gradient(120% 120% at 20% 10%, #143148 0%, #0b1520 60%); border-radius: 12px; overflow: hidden; border: 1px solid #19364b; }
+    canvas { width: 100%; height: 100%; display: block; }
+    .controls { position: absolute; inset: 0; pointer-events: none; }
+    .pad { position: absolute; bottom: 10px; left: 10px; width: 170px; height: 170px; border-radius: 50%; background: rgba(255,255,255,.03); border: 1px dashed rgba(255,255,255,.08); pointer-events: auto; touch-action: none; }
+    .pad::after { content: ""; position: absolute; inset: 50% 50%; width: 70px; height: 70px; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); }
+    .tapBtns { position: absolute; right: 10px; bottom: 10px; display: grid; grid-template-columns: repeat(2, 62px); grid-auto-rows: 62px; gap: 8px; pointer-events: auto; }
+    .tapBtns button { border: 1px solid #274a63; background: #0e1e2b; color: var(--text); border-radius: 10px; font-size: 18px; font-weight: 700; touch-action: manipulation; }
+    .tapBtns button:active { transform: translateY(1px); }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .kpi { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+    .kpi small { color: var(--muted); font-weight: 600; }
+    .leader { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+    .leader li { background: #0d1d2a; border: 1px solid #173045; border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; }
+    .leader .place { font-weight: 900; width: 28px; text-align: right; color: var(--gold); }
+    .leader .name { flex: 1; margin-left: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .leader .score { color: var(--muted); font-weight: 700; }
+    .notice { background: #0f2637; border: 1px solid #1c3e56; border-radius: 10px; padding: 10px; font-size: .95rem; line-height: 1.35; color: #d7e6f5; }
+    .win { color: #0bd86d; font-weight: 900; }
+    .lose { color: #ff6363; font-weight: 900; }
+    .modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.55); z-index: 50; }
+    .card { width: min(92vw, 520px); background: #0e1e2b; border: 1px solid #1b3449; border-radius: 14px; padding: 16px; }
+    .card h3 { margin: 0 0 6px; }
+    .card p { margin: 0 0 10px; color: var(--muted); }
+    .card input, .card button, .card select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #274a63; background: #0b1620; color: var(--text); font-size: 16px; }
+    .card button { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; font-weight: 800; letter-spacing: .2px; }
+    .hidden { display: none !important; }
+    .legend { display: flex; gap: 10px; align-items: center; font-size: .9rem; color: var(--muted); }
+    .legend span { display: inline-flex; gap: 6px; align-items: center; }
+    .legend .dot { width: 14px; height: 14px; border-radius: 3px; display: inline-block; border: 1px solid rgba(255,255,255,.2) }
+  </style>
+</head>
+<body>
+  <div id="nameModal" class="modal">
+    <div class="card">
+      <h3>Dein Name</h3>
+      <p>Bitte gib deinen Anzeigenamen ein. Er erscheint in der Rangliste, falls du die 1000 Punkte knackst.</p>
+      <input id="nameInput" maxlength="24" placeholder="z. B. Lea S." />
+      <div style="height:8px"></div>
+      <button id="saveName">Weiter</button>
+      <p style="margin-top:10px; font-size:.85rem; color:#9fb3c8">Hinweis: Du kannst beliebig oft spielen. Pro Person zählt nur der erste Gewinn.</p>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <header>
+      <h1>🎄 Snake – Xmas Edition <span class="badge">Live-Event</span><span id="envBadge" class="envBadge">Server: Demo</span></h1>
+      <div class="kpi"><small>Freie Gewinnerplätze:</small> <span id="slotsLeft">23</span></div>
+    </header>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>Spiel</h2>
+        <div class="body">
+          <div id="gameWrap">
+            <canvas id="game" width="480" height="480" aria-label="Snake-Spiel"></canvas>
+            <div class="controls">
+              <div class="pad" id="pad"></div>
+              <div class="tapBtns">
+                <button data-dir="up">▲</button>
+                <button data-dir="right">▶</button>
+                <button data-dir="left">◀</button>
+                <button data-dir="down">▼</button>
+              </div>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <div class="kpi"><small>Punkte:</small> <span id="score">0</span></div>
+            <div class="legend">
+              <span><i class="dot" style="background:#2ecc71"></i> Schlange</span>
+              <span><i class="dot" style="background:#e53935"></i> Zuckerstange</span>
+              <span><i class="dot" style="background:#f7c948"></i> Stern (Bonus)</span>
+            </div>
+          </div>
+          <div class="notice" id="message" style="margin-top:10px">Wische oder nutze die Pfeile. Erreiche <strong>1000 Punkte</strong>, um zu gewinnen. Viel Erfolg! ✨</div>
+          <div class="notice" id="configNotice" style="margin-top:10px; display:none"></div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h2>Live-Rangliste (erste 23 Gewinner:innen)</h2>
+        <div class="body">
+          <ol id="leader" class="leader"></ol>
+          <div id="leaderEmpty" class="notice">Noch hat niemand die 1000 Punkte erreicht. Sei die Erste / der Erste! 🎯</div>
+          <div style="height:10px"></div>
+          <div class="notice" id="afterReveal" class="hidden" style="display:none">
+            Die vollständige Rangliste ist nun aufgedeckt. Glückwunsch an alle Gewinner:innen! 🥳
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Supabase JS (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    /************************************
+     * 1) KONFIGURATION & VALIDIERUNG
+     ************************************/
+    // 👉 3 Wege, die Werte zu setzen (jede Reihenfolge überschreibt die vorherige):
+    // 1) Direkt hier in den Konstanten unten
+    // 2) Per globalem Objekt window.__ENV = { SUPABASE_URL:"...", SUPABASE_ANON_KEY:"..." }
+    // 3) Per URL-Parameter ?supabaseUrl=...&supabaseAnonKey=...
+
+    // (1) Default-Platzhalter – KANN leer bleiben.
+    const DEFAULT_SUPABASE_URL = ""; // z.B. "https://xyzcompany.supabase.co"
+    const DEFAULT_SUPABASE_ANON_KEY = ""; // z.B. "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.XXX.YYY"
+
+    // (2) Aus globalem Objekt lesen
+    const globalEnv = (typeof window !== 'undefined' && window.__ENV) ? window.__ENV : {};
+
+    // (3) Aus Querystring lesen
+    const params = new URLSearchParams(location.search);
+    const qsUrl = params.get('supabaseUrl') || params.get('url') || "";
+    const qsKey = params.get('supabaseAnonKey') || params.get('anon') || "";
+
+    // Endgültige Werte ermitteln (Priorität: Querystring > window.__ENV > Defaults)
+    const SUPABASE_URL = (qsUrl || globalEnv.SUPABASE_URL || DEFAULT_SUPABASE_URL || "").trim();
+    const SUPABASE_ANON_KEY = (qsKey || globalEnv.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY || "").trim();
+
+    const WIN_TARGET = 1000; // Punkte zum Gewinnen
+    const WIN_LIMIT = 23;    // Anzahl Gewinnerplätze
+
+    const envBadge = document.getElementById('envBadge');
+    const configNotice = document.getElementById('configNotice');
+
+    function isValidSupabaseUrl(u){
+      try {
+        if(!u) return false;
+        const parsed = new URL(u);
+        return (parsed.protocol === 'http:' || parsed.protocol === 'https:');
+      } catch(e){ return false; }
+    }
+    function isProbablyAnonKey(k){
+      // Supabase anon keys sind i.d.R. JWT-ähnlich (3 Teile durch Punkte getrennt)
+      if(!k) return false;
+      return k.split('.').length === 3 && k.length > 20;
+    }
+
+    let supabase = null;
+    let SERVER_MODE = 'demo'; // 'live' wenn gültig
+
+    if(isValidSupabaseUrl(SUPABASE_URL) && isProbablyAnonKey(SUPABASE_ANON_KEY)){
+      try {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        SERVER_MODE = 'live';
+        envBadge.textContent = 'Server: Live';
+        envBadge.style.background = 'linear-gradient(135deg, #2dce89, #2ecc71)';
+        envBadge.style.color = '#0b1520';
+      } catch (e) {
+        console.error('Supabase init error:', e);
+        supabase = null; SERVER_MODE = 'demo';
+      }
+    } else {
+      SERVER_MODE = 'demo';
+    }
+
+    if(SERVER_MODE==='demo'){
+      envBadge.textContent = 'Server: Demo';
+      configNotice.style.display = '';
+      configNotice.innerHTML = `⚠️ <strong>Demo-Modus ohne Server</strong><br>
+        Trage deine Werte ein oder nutze URL-Parameter:<br>
+        <code>?supabaseUrl=https://...supabase.co&supabaseAnonKey=eyJ...</code>`;
+    }
+
+    // --- Minimale "Testfälle" (laufen im Hintergrund, Ergebnis in Konsole) ---
+    (function runConfigTests(){
+      const tests = [
+        {name:'valid URL', fn:()=>isValidSupabaseUrl('https://abc.supabase.co')===true},
+        {name:'invalid URL', fn:()=>isValidSupabaseUrl('not-a-url')===false},
+        {name:'valid anon key shape', fn:()=>isProbablyAnonKey('a.b.c')===true},
+        {name:'invalid anon key shape', fn:()=>isProbablyAnonKey('abc')===false}
+      ];
+      let passed=0; tests.forEach(t=>{ const ok=t.fn(); console[(ok?'log':'error')](`[TEST] ${t.name}: ${ok?'PASS':'FAIL'}`); if(ok) passed++; });
+      console.log(`[TEST] ${passed}/${tests.length} Konfigurationstests bestanden.`);
+    })();
+  </script>
+
+  <script>
+    /************************************
+     * 2) NAME MODAL
+     ************************************/
+    const nameModal = document.getElementById('nameModal');
+    const nameInput = document.getElementById('nameInput');
+    const saveNameBtn = document.getElementById('saveName');
+
+    function getPlayerName() { return localStorage.getItem('snake_name') || ""; }
+    function setPlayerName(n) { localStorage.setItem('snake_name', n.trim()); }
+
+    function ensureName() {
+      const n = getPlayerName();
+      if (!n) nameModal.classList.remove('hidden'); else nameModal.classList.add('hidden');
+    }
+
+    saveNameBtn.addEventListener('click', () => {
+      const v = nameInput.value.trim();
+      if (v.length < 2) { alert('Bitte gib einen gültigen Namen ein.'); return; }
+      setPlayerName(v);
+      nameModal.classList.add('hidden');
+    });
+    window.addEventListener('load', () => { nameInput.value = getPlayerName(); ensureName(); });
+  </script>
+
+  <script>
+    /************************************
+     * 3) LEADERBOARD
+     ************************************/
+    const leaderEl = document.getElementById('leader');
+    const leaderEmptyEl = document.getElementById('leaderEmpty');
+    const slotsLeftEl = document.getElementById('slotsLeft');
+    const afterRevealEl = document.getElementById('afterReveal');
+
+    async function fetchLeaderboard() {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('winners')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(WIN_LIMIT);
+      if (error) { console.error(error); return []; }
+      return data || [];
+    }
+
+    function renderLeaderboard(rows) {
+      leaderEl.innerHTML = '';
+      if (!rows || rows.length === 0) {
+        leaderEmptyEl.style.display = '';
+        slotsLeftEl.textContent = WIN_LIMIT;
+        return;
+      }
+      leaderEmptyEl.style.display = 'none';
+      const left = Math.max(WIN_LIMIT - rows.length, 0);
+      slotsLeftEl.textContent = left;
+
+      rows.forEach((r, i) => {
+        const li = document.createElement('li');
+        const place = document.createElement('div'); place.className = 'place'; place.textContent = (i+1);
+        const name = document.createElement('div'); name.className = 'name'; name.textContent = r.name;
+        const score = document.createElement('div'); score.className = 'score'; score.textContent = r.score + ' Pkt';
+        li.appendChild(place); li.appendChild(name); li.appendChild(score);
+        leaderEl.appendChild(li);
+      });
+
+      if (rows.length >= WIN_LIMIT) afterRevealEl.style.display = '';
+    }
+
+    async function initLeaderboard() {
+      if (!supabase) { return; }
+      renderLeaderboard(await fetchLeaderboard());
+      supabase
+        .channel('winners_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'winners' }, async () => {
+          const rows = await fetchLeaderboard();
+          renderLeaderboard(rows);
+        })
+        .subscribe();
+    }
+  </script>
+
+  <script>
+    /************************************
+     * 4) SNAKE GAME – Touch- & Tastatursteuerung
+     ************************************/
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const message = document.getElementById('message');
+    const scoreEl = document.getElementById('score');
+    const pad = document.getElementById('pad');
+
+    const grid = 24; // 24x24 Zellen
+    const cell = canvas.width / grid;
+
+    let snake, dir, food, bonus, score, loopId, speedMs, playing, youWon;
+
+    function resetGame() {
+      snake = [{x:12,y:12},{x:11,y:12},{x:10,y:12}];
+      dir = {x:1,y:0};
+      food = spawnFreeCell();
+      bonus = null;
+      score = 0;
+      speedMs = 110;
+      youWon = false;
+      playing = true;
+      scoreEl.textContent = '0';
+      message.textContent = 'Wische oder nutze die Pfeile. Erreiche 1000 Punkte, um zu gewinnen. Viel Erfolg! ✨';
+      if (loopId) cancelAnimationFrame(loopId);
+      tick(performance.now());
+    }
+
+    function spawnFreeCell() {
+      while (true) {
+        const p = { x: Math.floor(Math.random()*grid), y: Math.floor(Math.random()*grid) };
+        if (!snake.some(s => s.x===p.x && s.y===p.y)) return p;
+      }
+    }
+
+    function drawCell(x,y,color) {
+      ctx.fillStyle = color; ctx.fillRect(x*cell, y*cell, cell, cell);
+      ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.strokeRect(x*cell+0.5, y*cell+0.5, cell-1, cell-1);
+    }
+
+    function drawBg() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.strokeStyle = 'rgba(255,255,255,.04)';
+      for (let i=0;i<grid;i++) {
+        ctx.beginPath(); ctx.moveTo(i*cell+0.5, 0); ctx.lineTo(i*cell+0.5, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i*cell+0.5); ctx.lineTo(canvas.width, i*cell+0.5); ctx.stroke();
+      }
+    }
+
+    let acc = 0; // accumulator
+    function tick(ts) { // rAF loop
+      loopId = requestAnimationFrame(tick);
+      acc += 16.6667; if (acc < speedMs) return; acc = 0; step(); render();
+    }
+
+    function step() {
+      if (!playing) return;
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+      head.x = (head.x + grid) % grid; head.y = (head.y + grid) % grid;
+      if (snake.some((s,i) => i>0 && s.x===head.x && s.y===head.y)) { gameOver('Uff! Du hast dich selbst gebissen. Nochmal?'); return; }
+      snake.unshift(head);
+      if (head.x===food.x && head.y===food.y) {
+        score += 50; scoreEl.textContent = score; food = spawnFreeCell(); if (!bonus && Math.random() < 0.25) bonus = spawnFreeCell(); speedMs = Math.max(70, speedMs - 2);
+      } else if (bonus && head.x===bonus.x && head.y===bonus.y) {
+        score += 150; scoreEl.textContent = score; bonus = null; speedMs = Math.max(60, speedMs - 3);
+      } else { snake.pop(); }
+      if (!youWon && score >= WIN_TARGET) { youWon = true; playing = false; tryRegisterWin(); }
+    }
+
+    function render() {
+      drawBg(); drawCell(food.x, food.y, '#e53935'); if (bonus) drawCell(bonus.x, bonus.y, '#f7c948'); snake.forEach((p,i) => drawCell(p.x,p.y, i===0? '#29d37d' : '#2ecc71'));
+    }
+
+    function gameOver(text) { playing = false; message.innerHTML = text + ' Tippe hier, um neu zu starten.'; }
+    message.addEventListener('click', () => { if (!playing && !youWon) resetGame(); });
+
+    // Tastatur
+    window.addEventListener('keydown', e => {
+      const k = e.key.toLowerCase();
+      if (k==='arrowup' || k==='w') turn(0,-1);
+      else if (k==='arrowdown' || k==='s') turn(0,1);
+      else if (k==='arrowleft' || k==='a') turn(-1,0);
+      else if (k==='arrowright' || k==='d') turn(1,0);
+      else if (k===' ' && !playing) resetGame();
+    });
+
+    // Buttons
+    document.querySelectorAll('.tapBtns button').forEach(btn => btn.addEventListener('click', () => {
+      const d = btn.getAttribute('data-dir'); if (d==='up') turn(0,-1); if (d==='down') turn(0,1); if (d==='left') turn(-1,0); if (d==='right') turn(1,0);
+    }));
+
+    // Touchpad (Swipe)
+    let start = null;
+    pad.addEventListener('touchstart', (e) => { start = e.changedTouches[0]; }, { passive: true });
+    pad.addEventListener('touchmove', (e) => {
+      if (!start) return; const t = e.changedTouches[0]; const dx = t.clientX - start.clientX; const dy = t.clientY - start.clientY;
+      if (Math.hypot(dx,dy) > 18) { if (Math.abs(dx) > Math.abs(dy)) turn(Math.sign(dx), 0); else turn(0, Math.sign(dy)); start = t; }
+    }, { passive: true });
+    pad.addEventListener('touchend', () => { start = null; });
+
+    function turn(x,y) {
+      if (!playing) return; if (snake.length>1) { if (x!==0 && dir.x!==0) return; if (y!==0 && dir.y!==0) return; }
+      dir = {x: Math.max(-1, Math.min(1, x)), y: Math.max(-1, Math.min(1, y))};
+    }
+  </script>
+
+  <script>
+    /************************************
+     * 5) GEWINN-REGISTRIERUNG (Supabase RPC)
+     ************************************/
+    async function tryRegisterWin() {
+      const player = getPlayerName(); if (!player) { ensureName(); return; }
+      const message = document.getElementById('message'); message.innerHTML = 'Wird überprüft …';
+      if (!supabase) { message.innerHTML = '🎉 Du hast gewonnen! (Demo-Modus ohne Server)'; return; }
+      const { data, error } = await supabase.rpc('insert_winner', { p_name: player, p_score: Number(scoreEl.textContent)||0 });
+      if (error) { console.error(error); message.innerHTML = '<span class="lose">Fehler bei der Registrierung.</span> Bitte versuche es nochmals.'; return; }
+      if (data && data.ok) { message.innerHTML = '🎉 <span class="win">Du hast gewonnen!</span> Dein Rang: <strong>' + (data.rank) + '</strong>.'; }
+      else { message.innerHTML = 'Schade – alle '+WIN_LIMIT+' Plätze sind bereits vergeben.'; }
+    }
+
+    // Start
+    resetGame();
+    initLeaderboard();
+  </script>
+
+  <script>
+    /**********************************************
+     * 6) OPTIONAL: QR-Code auf der Seite anzeigen
+     **********************************************/
+    // const GAME_URL = location.href; // oder feste URL deiner Deployment-Seite
+    // const qrImg = document.getElementById('qr');
+    // if (qrImg) {
+    //   const api = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(GAME_URL);
+    //   qrImg.src = api;
+    // }
+  </script>
+</body>
+</html>
